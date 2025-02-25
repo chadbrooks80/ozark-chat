@@ -1,0 +1,25 @@
+# 🔥 Python-related
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+venv/
+env/
+*.env
+*.log
+
+# 🔥 Ignore Flask secret keys & API credentials
+ozarkchatdb-firebase-adminsdk-*.json
+*.env
+.env
+
+# 🔥 Ignore IDE & system files
+.DS_Store
+.vscode/
+.idea/
+*.swp
+
+# 🔥 Ignore Node.js & frontend build files (if applicable)
+node_modules/
+dist/
+build/
