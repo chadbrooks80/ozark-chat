@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, Response
 from flask_socketio import SocketIO, emit
 from openai import OpenAI
 from dotenv import load_dotenv
@@ -11,7 +11,7 @@ from firebase_admin import credentials, firestore
 load_dotenv()
 
 # Load Firebase Service Account Key
-cred = credentials.Certificate("ozarkchatdb-firebase-adminsdk-fbsvc-fa7c910660.json")  # Change to your actual file name
+cred = credentials.Certificate("ozarkchatdb-firebase-adminsdk-fbsvc-fa7c910660.json")  # Change if needed
 firebase_admin.initialize_app(cred)
 
 # Initialize Firestore
@@ -35,7 +35,7 @@ def chat_gpt(prompt):
             "role": "system",
             "content": """
             You are Ozark Poop Patrol’s customer service assistant.
-            Your goal is to get their name and Phone number so they can talk to a real Specialist, always try to ask.
+            Your goal is to get their name and phone number so they can talk to a real Specialist—always try to ask.
             Your job is to answer customer questions professionally, using the provided business information.
             Always be polite, accurate, and helpful. If you don't know something, say so.
 
@@ -102,13 +102,15 @@ def handle_message(data):
 def home():
     return render_template('index.html')
 
+@app.route('/chat')
+def chat():
+    return render_template('chat.html')  # Ensure chat.html exists in /templates
 
 @app.route('/test-firestore')
 def test_firestore():
     test_doc_ref = db.collection("chat_sessions").document("test_connection")
     test_doc_ref.set({"message": "Firestore is connected!", "status": "Success"})
     return {"status": "success", "message": "Firestore write test successful"}
-
 
 @app.route('/create-session', methods=['POST'])
 def create_session():
@@ -146,19 +148,63 @@ def get_messages():
         
         chat_history = []
         for msg in messages:
-            msg_data = msg.to_dict()  # ✅ Convert snapshot to dictionary properly
+            msg_data = msg.to_dict()
             chat_history.append({
                 "user_message": msg_data.get("user_message", ""),
                 "bot_response": msg_data.get("bot_response", ""),
                 "timestamp": msg_data.get("timestamp", "")
             })
 
-        print(f"✅ Loaded {len(chat_history)} messages for session: {session_id}")  # Debugging output
         return jsonify({"status": "success", "chat_history": chat_history})
 
     except Exception as e:
-        print(f"❌ Error retrieving messages: {str(e)}")  # Log error
         return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route("/chat-widget")
+def chat_widget():
+    return render_template("chat-widget.html")  # This file will contain only the chat widget
+
+
+@app.route("/embed.js")
+def serve_embed_js():
+    script = """
+    (function() {
+        function loadChat() {
+            if (document.getElementById('ozark-chat-widget')) return; // Prevent duplicate loading
+
+            var chatContainer = document.createElement('div');
+            chatContainer.id = 'ozark-chat-widget';
+            chatContainer.style.position = 'fixed';
+            chatContainer.style.bottom = '20px';
+            chatContainer.style.right = '20px';
+            chatContainer.style.width = '350px';
+            chatContainer.style.height = '500px';
+            chatContainer.style.border = 'none';
+            chatContainer.style.zIndex = '9999';
+            chatContainer.style.boxShadow = '0 4px 8px rgba(0,0,0,0.2)';
+            chatContainer.style.borderRadius = '10px';
+            chatContainer.style.overflow = 'hidden';
+            chatContainer.style.backgroundColor = 'white';
+
+            var chatFrame = document.createElement('iframe');
+            chatFrame.src = 'http://localhost:5000/chat-widget';  // Now loads only the widget
+            chatFrame.style.width = '100%';
+            chatFrame.style.height = '100%';
+            chatFrame.style.border = 'none';
+
+            chatContainer.appendChild(chatFrame);
+            document.body.appendChild(chatContainer);
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', loadChat);
+        } else {
+            loadChat();
+        }
+    })();
+    """
+    return Response(script, mimetype="application/javascript")
 
 
 
